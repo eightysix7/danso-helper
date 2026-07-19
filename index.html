@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#AD5168">
 <title>단소·리코더 도우미</title>
 <!-- DESIGN v3.1: calm rose + 포인트 컬러 -->
-<!-- APP v1.1 · BLE 프로토콜 v2: 측정=폰 상시, micro:bit=LED 미러(V)/버튼/스피커/호흡(D) -->
+<!-- APP v1.2 · V 상태동기화(0.5s)/연속 진동 엔진/청각 모드 버튼 음 선택 -->
 <style>
 /* ============================================================
    v2 — Calm Modern: 뉴트럴 서피스 + 단일 액센트, 8px 그리드
@@ -595,22 +595,32 @@ TTS._init();
  *  판정별 패턴 상이 + 세기 3단계(지속시간 배율) / 판정 '변화 시점'에만 발동
  * ================================================================== */
 const Vib = {
-  level: 2,                       // 0=끔, 1=약, 2=중, 3=강
-  SCALE: { 1: 0.6, 2: 1.0, 3: 1.6 },
-  PATTERNS: { 1: [350], 2: [100, 60, 100], 3: [70, 50, 70, 50, 70] },  // 낮음/맞음/높음
+  // v1.2: 상태형 연속 진동 — 틀린 동안 전화벨처럼 계속 울림
+  //  낮음(1): 길게-쉼 반복 / 높음(3): 짧게 3연타 반복 / 맞음·무음: 정지
+  level: 3,                       // 0=끔, 1=약, 2=중, 3=강(기본)
+  SCALE: { 1: 0.45, 2: 0.7, 3: 1.0 },
   supported: ('vibrate' in navigator),
-  fire(verdict) {
-    if (!this.supported || this.level === 0) return;
-    const base = this.PATTERNS[verdict];
-    if (!base) return;
+  _timer: null, _cur: 0,
+  setState(v) {
+    if (v === this._cur) return;
+    this._cur = v;
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (!this.supported) return;
+    if (this.level === 0 || (v !== 1 && v !== 3)) { navigator.vibrate(0); return; }
     const k = this.SCALE[this.level] || 1;
-    navigator.vibrate(base.map((d, i) => (i % 2 === 0 ? Math.round(d * k) : d)));
+    const pat = (v === 1)
+      ? [Math.round(700 * k), 250]
+      : [Math.round(160 * k), 90, Math.round(160 * k), 90, Math.round(160 * k)];
+    const fire = () => navigator.vibrate(pat);
+    fire();
+    this._timer = setInterval(fire, 1000);
   },
+  stop() { this.setState(0); },
   test() {
     if (!this.supported) return false;
     if (this.level === 0) return true;
     const k = this.SCALE[this.level] || 1;
-    navigator.vibrate([Math.round(150 * k), 80, Math.round(150 * k)]);
+    navigator.vibrate([Math.round(400 * k), 120, Math.round(400 * k)]);
     return true;
   }
 };
@@ -847,6 +857,7 @@ const App = (function () {
     cfg.calib = Object.assign({}, DEFAULTS.calib, (j && j.calib) || {});
   } catch (e) { cfg = JSON.parse(JSON.stringify(DEFAULTS)); }
   cfg.src = 'phone';   // v1.1: 측정은 항상 폰 마이크 (프로토콜 v2)
+  if (cfg.vib !== 0) cfg.vib = 3;   // v1.2: 진동 기본 최강
   function save() { try { localStorage.setItem('dsr.cfg', JSON.stringify(cfg)); } catch (e) {} }
 
   // ---------- 앱 상태 ----------
@@ -962,7 +973,7 @@ const App = (function () {
       BLE.send('V,' + (t ? (v === 0 ? 4 : v) : 0));   // 프로토콜 v2: LED 미러
     }
 
-    if (S.screen === 'hear' && changed && v >= 1 && v <= 3) Vib.fire(v);   // 계획서 F6
+    if (S.screen === 'hear') Vib.setState(t ? v : 0);   // 계획서 F6 — 연속 진동(v1.2)
 
     if (S.screen === 'see' && S.practice) {
       if (v === 2 && changed && S.successFor !== S.practice.pos) {
@@ -1043,6 +1054,7 @@ const App = (function () {
     } else {
       if (BLE.connected && name === 'home') { BLE.sendReliable(Core.buildM('I')); }
       if (name === 'home') { S.practice = null; S.selIdx = -1; Wake.off(); TTS.stop(); }
+      Vib.stop();
       ensureSource();
     }
     updateConnUI();
@@ -1224,6 +1236,11 @@ const App = (function () {
       if (S.screen === 'see' && S.practice) {
         if (m.key === 'T' || m.key === 'B') nextNote();
         else if (m.key === 'A') announcePos(true);   // 다시 안내
+      } else if (S.screen === 'hear') {
+        // v1.2: 악기에서 손 떼지 않고 음 변경 (로고/B=다음, A=이전)
+        const nn = Core.INSTRUMENTS[S.inst].notes.length;
+        if (m.key === 'T' || m.key === 'B') selectNote((S.selIdx + 1 + nn) % nn);
+        else if (m.key === 'A') selectNote((S.selIdx <= 0 ? nn - 1 : S.selIdx - 1));
       }
     }
     else if (m.type === 'R') BLE.gotAck(m.cmd);
@@ -1247,6 +1264,14 @@ const App = (function () {
     updateConnUI();
   };
   Pitch.onFrame = (d) => onMeasure(d, 'phone');
+
+  // V 상태 동기화 (v1.2): 변화 시 전송 + 0.5초마다 현재 상태 재전송 — 단발 유실 자가복구
+  setInterval(() => {
+    if (!BLE.connected) return;
+    const ts = currentTarget();
+    const vs = S.lastV;
+    BLE.send('V,' + (ts ? ((vs >= 1 && vs <= 3) ? vs : 4) : 0));
+  }, 500);
 
   // 연결 감시 (아키텍처 §5.2: 2.5초 무수신 경고)
   setInterval(() => {
