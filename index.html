@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#AD5168">
 <title>단소·리코더 도우미</title>
 <!-- DESIGN v3.1: calm rose + 포인트 컬러 -->
-<!-- APP v1.4 · 시각 모드 전화면 물리버튼 내비/TTS 즉시중단/더블탭 0.5s 지연/즉시 렌더/수신 진단 -->
+<!-- APP v1.5 · 코칭 문구 방향 기준으로 수정/시각 모드 진동 추가 -->
 <style>
 /* ============================================================
    v2 — Calm Modern: 뉴트럴 서피스 + 단일 액센트, 8px 그리드
@@ -970,7 +970,7 @@ const App = (function () {
       BLE.send('V,' + (t ? (v === 0 ? 4 : v) : 0));   // 프로토콜 v2: LED 미러
     }
 
-    if (S.screen === 'hear') Vib.setState(t ? v : 0);   // 계획서 F6 — 연속 진동(v1.2)
+    if (S.screen === 'hear' || (S.screen === 'see' && S.practice)) Vib.setState(t ? v : 0);   // 계획서 F6 — 청각·시각 공통(v1.5)
 
     if (S.screen === 'see' && S.practice) {
       if (v === 2 && changed && S.successFor !== S.practice.pos) {
@@ -980,8 +980,8 @@ const App = (function () {
       // 코칭: 틀린 판정이 3초 이상 지속 (6초 간격)
       if ((v === 1 || v === 3) && Date.now() - S.lastVAt > 3000 && Date.now() - S.coachAt > 6000) {
         S.coachAt = Date.now();
-        TTS.speak(v === 1 ? '조금 낮아요. 입김을 조금 더 세게 불어 보세요.'
-                          : '조금 높아요. 입김을 살짝 줄여 보세요.');
+        TTS.speak(v === 1 ? '조금 낮아요. 음을 높여 주세요.'
+                          : '조금 높아요. 음을 내려 주세요.');
       }
     }
   }
@@ -994,9 +994,9 @@ const App = (function () {
   };
   const STATUS_HEAR = {
     0: (n) => `'${n}' 소리를 길게 내어 보세요`,
-    1: () => '조금 낮아요 — 입김을 조금 더 세게!',
+    1: () => '조금 낮아요 — 음을 높여 보세요!',
     2: () => '참 잘했어요! 그 소리를 기억하세요 🎉',
-    3: () => '조금 높아요 — 입김을 살짝 약하게!'
+    3: () => '조금 높아요 — 음을 내려 보세요!'
   };
   const VERDICT_SEE = { 0: ['소리를 기다려요…', ''], 1: ['낮아요 ⬇', 'v1'], 2: ['맞았어요 ⭕', 'v2'], 3: ['높아요 ⬆', 'v3'] };
 
@@ -1096,6 +1096,7 @@ const App = (function () {
     SEE_VIEWS.forEach(id => $(id).classList.toggle('hidden', id !== 'see-' + v));
     if (v === 'menu') {
       S.practice = null;
+      Vib.stop();
       if (BLE.connected) BLE.sendReliable(Core.buildGClear());
       Pitch.stop();
       TTS.speak('시각장애 모드입니다. 연습 곡, 운지 가이드, 앱 설정, 처음으로 버튼이 있습니다. 버튼을 한 번 누르면 읽어 주고, 두 번 누르면 실행합니다.');
@@ -1167,6 +1168,7 @@ const App = (function () {
     $('pr-progress').textContent = `${S.practice.pos + 1} / ${song.seq.length}`;
     $('pr-verdict').textContent = '준비'; $('pr-verdict').className = 'hc-verdict';
     S.successFor = -1; S.lastV = -1; S.coachAt = 0;
+    Vib.stop();   // 음 전환 중 이전 진동 잔류 방지 (v1.5)
     pushTarget();
     return name;
   }
@@ -1180,6 +1182,7 @@ const App = (function () {
     if (!S.practice) return;
     const song = Core.SONGS[S.practice.songIdx];
     if (S.practice.pos >= song.seq.length - 1) {
+      Vib.stop();
       TTS.speak('연습을 모두 마쳤어요. 참 잘했어요!');
       if (BLE.connected) BLE.sendReliable(Core.buildGClear());
       S.practice = null;
@@ -1221,7 +1224,7 @@ const App = (function () {
     if (act === 'listen') { TTS.stop(); return playReference(700); }
     if (act === 'next') return nextNote();
     if (act === 'prev') return prevNote();
-    if (act === 'exit') { TTS.speak('연습을 끝냈어요.'); S.practice = null; if (BLE.connected) BLE.sendReliable(Core.buildGClear()); return showSeeViewRaw('songlist'); }
+    if (act === 'exit') { Vib.stop(); TTS.speak('연습을 끝냈어요.'); S.practice = null; if (BLE.connected) BLE.sendReliable(Core.buildGClear()); return showSeeViewRaw('songlist'); }
     if (act === 'fin-rec') { S.finInst = 'recorder'; renderFingerlist(); return TTS.speak('리코더 운지입니다.'); }
     if (act === 'fin-dan') { S.finInst = 'danso'; renderFingerlist(); return TTS.speak('단소 운지입니다.'); }
     if (act === 'fingerback') return showSeeView('fingerlist');
