@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#AD5168">
 <title>단소·리코더 도우미</title>
 <!-- DESIGN v3.1: calm rose + 포인트 컬러 -->
-<!-- APP v1.3 · 기준음=폰 스피커 상시(P 미사용, 패닉 원인 제거)/시각 모드 A=이전·B=다음 -->
+<!-- APP v1.4 · 시각 모드 전화면 물리버튼 내비/TTS 즉시중단/더블탭 0.5s 지연/즉시 렌더/수신 진단 -->
 <style>
 /* ============================================================
    v2 — Calm Modern: 뉴트럴 서피스 + 단일 액센트, 8px 그리드
@@ -571,8 +571,10 @@ const TTS = {
     pick();
     speechSynthesis.onvoiceschanged = pick;
   },
+  _seq: 0,
   speak(text, opts = {}) {
     if (!this.enabled || !text) return;
+    const my = ++this._seq;                                  // v1.4: 최신 발화 토큰
     if (opts.interrupt !== false) speechSynthesis.cancel();  // 기본: 새 안내가 이전 발화를 대체
     const u = new SpeechSynthesisUtterance(text);
     if (this.voice) u.voice = this.voice;
@@ -583,7 +585,7 @@ const TTS = {
     const _clr = () => { Pitch.muteUntil = Date.now() + 250; };
     u.addEventListener('end', _clr);
     u.addEventListener('error', _clr);
-    if (opts.onend) u.addEventListener('end', opts.onend);
+    if (opts.onend) u.addEventListener('end', () => { if (my === this._seq) opts.onend(); });  // 취소된 발화의 콜백 차단
     speechSynthesis.speak(u);
   },
   stop() { if (this.enabled) speechSynthesis.cancel(); Pitch.muteUntil = Date.now() + 200; }
@@ -872,7 +874,7 @@ const App = (function () {
     finInst: 'recorder', fdName: null,
     calib: null,               // { inst, noteF, vals:[], until } 캘리브레이션 수집
     setReturn: 'home',
-    lastTapEl: null, lastTapAt: 0,
+    lastTapEl: null, lastTapAt: 0, hwFocus: -1, actPending: false,
     warnedNoSignal: false
   };
 
@@ -1090,7 +1092,7 @@ const App = (function () {
   // ---------- 시각 모드 ----------
   const SEE_VIEWS = ['see-menu', 'see-songlist', 'see-practice', 'see-fingerlist', 'see-fingerdetail'];
   function showSeeView(v) {
-    S.seeView = v;
+    S.seeView = v; S.hwFocus = -1;
     SEE_VIEWS.forEach(id => $(id).classList.toggle('hidden', id !== 'see-' + v));
     if (v === 'menu') {
       S.practice = null;
@@ -1140,7 +1142,7 @@ const App = (function () {
     TTS.speak(`${name}. ${desc}`);
   }
   function showSeeViewRaw(v) {  // TTS 인트로 없이 전환
-    S.seeView = v;
+    S.seeView = v; S.hwFocus = -1;
     SEE_VIEWS.forEach(id => $(id).classList.toggle('hidden', id !== 'see-' + v));
   }
 
@@ -1153,11 +1155,12 @@ const App = (function () {
     showSeeViewRaw('practice');
     if (BLE.connected) BLE.sendReliable(Core.buildM('V'));
     ensureSource();
-    TTS.speak(`${song.name} 연습을 시작합니다. 비 버튼을 누르면 다음 음, 에이 버튼을 누르면 이전 음으로 갑니다.`, {
+    renderPos();   // v1.4: 인트로 음성 동안에도 첫 음이 바로 보이게
+    TTS.speak(`${song.name}을 시작합니다. 비 버튼은 다음 음, 에이 버튼은 이전 음입니다.`, {
       onend: () => announcePos(true)
     });
   }
-  function announcePos(playRef) {
+  function renderPos() {   // v1.4: 화면 갱신을 음성과 분리 — 진입 즉시 첫 음 표시
     const song = Core.SONGS[S.practice.songIdx];
     const name = song.seq[S.practice.pos];
     $('pr-note').textContent = name;
@@ -1165,6 +1168,10 @@ const App = (function () {
     $('pr-verdict').textContent = '준비'; $('pr-verdict').className = 'hc-verdict';
     S.successFor = -1; S.lastV = -1; S.coachAt = 0;
     pushTarget();
+    return name;
+  }
+  function announcePos(playRef) {
+    const name = renderPos();
     TTS.speak(`${S.practice.pos + 1}번째. 다음 음은 ${name}입니다.`, {
       onend: () => { if (playRef) playReference(700); }
     });
@@ -1189,12 +1196,13 @@ const App = (function () {
 
   // ---------- 시각 모드: 1탭 읽기 / 2탭 실행 (계획서 F9) ----------
   $('s-see').addEventListener('click', (ev) => {
+    if (S.actPending) return;                 // 실행 대기 중 추가 탭 무시
     const el = ev.target.closest('[data-tts]');
     if (!el) return;
     const now = Date.now();
     if (S.lastTapEl === el && now - S.lastTapAt < 900) {
       S.lastTapEl = null;
-      runAction(el.dataset.act);
+      runActionDelayed(el.dataset.act, el, 500);   // v1.4: 실행만 0.5초 지연
     } else {
       S.lastTapEl = el; S.lastTapAt = now;
       qsa('.hc-btn.focus', $('s-see')).forEach(b => { if (b !== el) b.classList.remove('focus'); });
@@ -1228,15 +1236,7 @@ const App = (function () {
     const m = Core.parseLine(line);
     if (m.type === 'D') { S.mbLevel = m.level; S.mbLevelAt = Date.now(); }
     else if (m.type === 'E') {
-      if (S.screen === 'see' && S.practice) {
-        if (m.key === 'T' || m.key === 'B') nextNote();
-        else if (m.key === 'A') prevNote();          // v1.3: A=이전 음 (청각 모드와 통일)
-      } else if (S.screen === 'hear') {
-        // v1.2: 악기에서 손 떼지 않고 음 변경 (로고/B=다음, A=이전)
-        const nn = Core.INSTRUMENTS[S.inst].notes.length;
-        if (m.key === 'T' || m.key === 'B') selectNote((S.selIdx + 1 + nn) % nn);
-        else if (m.key === 'A') selectNote((S.selIdx <= 0 ? nn - 1 : S.selIdx - 1));
-      }
+      handleHwButton(m.key);
     }
     else if (m.type === 'R') BLE.gotAck(m.cmd);
     else if (m.type === 'K') toast('마이크로비트 준비 완료 ✓');
@@ -1244,6 +1244,11 @@ const App = (function () {
   BLE.onState = (st, n) => {
     if (st === 'connected') {
       toast('마이크로비트 연결됨 ✓');
+      setTimeout(() => {   // v1.4: 수신 경로 진단 — K/D가 안 오면 경고
+        if (BLE.connected && Date.now() - BLE.lastDataAt > 2800) {
+          toast('⚠️ 마이크로비트에서 신호가 안 와요. 전원을 껐다 켠 뒤 다시 연결해 주세요.', 4500);
+        }
+      }, 3000);
       const modeChar = S.screen === 'hear' ? 'H' : (S.screen === 'see' ? 'V' : 'I');
       BLE.sendReliable(Core.buildM(modeChar));
       pushTarget();
@@ -1279,6 +1284,50 @@ const App = (function () {
       }
     }
   }, 1000);
+
+  // ---------- 물리 버튼 통합 핸들러 (v1.4) ----------
+  function handleHwButton(key) {
+    if (S.screen === 'hear') {
+      const nn = Core.INSTRUMENTS[S.inst].notes.length;
+      if (key === 'T' || key === 'B') selectNote((S.selIdx + 1 + nn) % nn);
+      else if (key === 'A') selectNote((S.selIdx <= 0 ? nn - 1 : S.selIdx - 1));
+      return;
+    }
+    if (S.screen !== 'see') return;
+    if (S.practice) {
+      TTS.stop();   // 안내 음성 중이어도 즉시 중단하고 진행
+      if (key === 'T' || key === 'B') nextNote();
+      else if (key === 'A') prevNote();
+      return;
+    }
+    // 메뉴/목록 화면: B=다음 항목 읽기, A=이전 항목 읽기, 로고=현재 항목 실행
+    const box = $('see-' + S.seeView);
+    if (!box) return;
+    const btns = qsa('[data-tts]', box);
+    if (!btns.length) return;
+    if (key === 'T') {
+      if (S.hwFocus >= 0 && btns[S.hwFocus]) {
+        S.lastTapEl = null;
+        runActionDelayed(btns[S.hwFocus].dataset.act, btns[S.hwFocus], 0);
+      } else {
+        TTS.speak('비 버튼으로 항목을 고른 뒤 로고를 만지면 실행됩니다.');
+      }
+      return;
+    }
+    if (key === 'B') S.hwFocus = (S.hwFocus < 0 ? 0 : (S.hwFocus + 1) % btns.length);
+    else if (key === 'A') S.hwFocus = (S.hwFocus <= 0 ? btns.length - 1 : S.hwFocus - 1);
+    btns.forEach(b => b.classList.remove('focus'));
+    btns[S.hwFocus].classList.add('focus');
+    TTS.speak(btns[S.hwFocus].dataset.tts);
+  }
+
+  // 더블탭/실행 지연 (v1.4): 실행 0.5초 지연 — 화면 전환 직후 고스트 클릭 방지
+  function runActionDelayed(act, el, delay) {
+    if (S.actPending) return;
+    S.actPending = true;
+    if (el) el.classList.add('focus');
+    setTimeout(() => { S.actPending = false; runAction(act); }, delay);
+  }
 
   // ---------- 연결 UI ----------
   function updateConnUI() {
