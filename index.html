@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="theme-color" content="#AD5168">
+<title>단소·리코더 도우미</title>
+<!-- DESIGN v3.1: calm rose + 포인트 컬러 (음높이 도트/모드 칩/존 힌트) -->
+<style>
+/* ============================================================
+   v2 — Calm Modern: 뉴트럴 서피스 + 단일 액센트, 8px 그리드
+   ============================================================ */
+:root{
+  --bg:#FAF6F7;            /* 장미빛이 옅게 도는 웜 뉴트럴 */
+  --surface:#FFFFFF;
+  --line:#EDDFE3;
+  --ink:#2E2328;           /* 로즈 틴트 잉크 */
+  --ink-2:#6E5A61;
+  --ink-3:#A6929A;
+  --accent:#AD5168;        /* 단아한 더스티 로즈 */
+  --accent-soft:#F7EAEE;
+  --ok:#278A5B;   --ok-soft:#E9F5EE;
+  --low:#4A7CC1;  --low-soft:#EBF2FA;
+  --high:#C64A4A; --high-soft:#FAECEC;
+  --warn:#B07A1A; --warn-soft:#F9F1E2;
+  --r-lg:18px; --r-md:12px; --r-sm:10px;
+}
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; }
+body{
+  font-family:"Pretendard Variable",Pretendard,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;
+  background:var(--bg); color:var(--ink);
+  font-size:16px; line-height:1.45;
+}
+.screen{ max-width:480px; margin:0 auto; padding:24px 20px 48px; min-height:100vh; }
+.hidden{ display:none !important; }
+button{ font-family:inherit; border:none; cursor:pointer; color:inherit; background:none; }
+button:active{ transform:scale(.98); }
+
+/* ---------- 헤더 ---------- */
+.app-header{ padding:8px 4px 24px; }
+.app-header h1{ font-size:24px; font-weight:800; letter-spacing:-0.4px; }
+.app-header p{ font-size:14px; color:var(--ink-2); margin-top:6px; }
+
+.topbar{ display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.topbar h2{ font-size:19px; font-weight:800; letter-spacing:-0.3px; flex:1; }
+.btn-back{
+  width:44px; height:44px; border-radius:var(--r-md);
+  background:var(--surface); border:1px solid var(--line);
+  font-size:19px; font-weight:700; color:var(--ink-2);
+}
+
+/* ---------- 카드/텍스트 ---------- */
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg);
+  padding:20px; margin-bottom:16px;
+}
+.small{ font-size:13px; color:var(--ink-3); line-height:1.55; }
+.sec-label{
+  font-size:13px; font-weight:700; color:var(--ink-2);
+  margin:20px 2px 10px; letter-spacing:.2px;
+}
+
+/* ---------- 배지 ---------- */
+.badge{ display:inline-block; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+.badge.on  { background:var(--ok-soft);  color:var(--ok); }
+.badge.off { background:#F2E8EB; color:var(--ink-3); }
+.badge.warn{ background:var(--warn-soft); color:var(--warn); }
+
+/* ---------- 홈 ---------- */
+.btn-mode{
+  width:100%; min-height:80px; border-radius:var(--r-lg);
+  background:var(--surface); border:1px solid var(--line);
+  font-size:18px; font-weight:800; color:var(--ink);
+  margin-bottom:12px; padding:14px 18px;
+  display:flex; align-items:center; justify-content:flex-start; gap:14px; text-align:left;
+}
+.mchip{
+  width:48px; height:48px; border-radius:14px; flex:none;
+  display:flex; align-items:center; justify-content:center; font-size:25px;
+}
+.mc-see{ background:#FBF0D8; }
+.mc-hear{ background:#E4EEF8; }
+.mc-set{ background:var(--accent-soft); font-size:20px; width:38px; height:38px; border-radius:11px; }
+.mtxt{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.mtxt small{ font-size:12.5px; font-weight:600; color:var(--ink-3); }
+.btn-wide{
+  width:100%; min-height:52px; border-radius:var(--r-md);
+  background:var(--surface); border:1px solid var(--line);
+  font-size:15px; font-weight:700; color:var(--ink); margin-bottom:10px;
+}
+.btn-accent{ background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* ---------- 탭 ---------- */
+.tabs{ display:flex; background:#F2E8EB; border-radius:var(--r-md); padding:4px; gap:4px; margin-bottom:16px; }
+.tab{ flex:1; min-height:44px; border-radius:9px; font-size:15px; font-weight:700; color:var(--ink-2); }
+.tab.sel{ background:var(--surface); color:var(--accent); box-shadow:0 1px 3px rgba(72,42,52,.10); }
+
+/* ---------- 음 선택 ---------- */
+.notes{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
+.notes.five{ grid-template-columns:repeat(5,1fr); }
+.note-btn{
+  min-height:58px; border-radius:var(--r-md); font-size:16px; font-weight:700;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink);
+  padding:6px 2px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+}
+.note-btn::before{
+  content:""; width:8px; height:8px; border-radius:50%;
+  background:var(--dot,#D8C3CA);
+}
+.note-btn.sel{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:800; }
+.note-btn.sel::before{ background:rgba(255,255,255,.9); }
+/* 음높이 색 매핑: 낮은 음(웜 로즈) → 높은 음(쿨 블루) */
+.nc0{--dot:#D98F8B;} .nc1{--dot:#D8879C;} .nc2{--dot:#C97FAC;} .nc3{--dot:#B37BBB;}
+.nc4{--dot:#9A7CC6;} .nc5{--dot:#8384CD;} .nc6{--dot:#7793D2;} .nc7{--dot:#6FA3D8;}
+
+/* ---------- 튜너 ---------- */
+#hz-val{
+  font-size:52px; font-weight:800; text-align:center; letter-spacing:-1px;
+  font-variant-numeric:tabular-nums; padding-top:4px;
+}
+#hz-unit{ font-size:18px; font-weight:700; color:var(--ink-3); letter-spacing:0; }
+#note-cur{ text-align:center; font-size:13px; color:var(--ink-3); margin-top:2px; min-height:18px; }
+
+.verdict{
+  margin-top:16px; border-radius:var(--r-md); padding:14px 10px; text-align:center;
+  font-size:22px; font-weight:800; background:#F4EDEF; color:var(--ink-2);
+  transition:background .15s;
+}
+.verdict.v1{ background:var(--low-soft);  color:var(--low); }
+.verdict.v2{ background:var(--ok-soft);   color:var(--ok); }
+.verdict.v3{ background:var(--high-soft); color:var(--high); }
+
+/* ---------- 게이지 ---------- */
+.gauge-wrap{ margin-top:16px; }
+.gauge-labels{ display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--ink-3); margin-bottom:6px; }
+.gauge{
+  position:relative; height:36px; border-radius:10px; overflow:hidden;
+  background:linear-gradient(90deg, #EFF3FA 0 16%, #F2E8EB 16% 84%, #FAF0F0 84% 100%);
+}
+.gauge::before{ /* 목표 존 */
+  content:""; position:absolute; left:40%; right:40%; top:0; bottom:0;
+  background:var(--ok-soft); border-left:1px solid #CBE7D8; border-right:1px solid #CBE7D8;
+}
+.gauge::after{ /* 중앙선 */
+  content:""; position:absolute; left:50%; top:6px; bottom:6px; width:2px; margin-left:-1px;
+  background:#BCE3CD; border-radius:1px;
+}
+.gauge .needle{
+  position:absolute; top:4px; bottom:4px; width:6px; border-radius:3px; background:var(--ink);
+  left:calc(50% - 3px); transition:left .12s linear; z-index:1;
+}
+#cents-txt{ text-align:center; font-size:12px; color:var(--ink-3); margin-top:6px; min-height:16px; font-variant-numeric:tabular-nums; }
+
+/* ---------- 호흡 ---------- */
+.breath{ display:flex; gap:8px; margin-top:8px; }
+.bseg{
+  flex:1; min-height:42px; border-radius:var(--r-sm);
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:700;
+}
+#b-weak  { background:#F0F4FA; color:#93A9C8; }
+#b-good  { background:#EDF6F1; color:#84B29A; }
+#b-strong{ background:#FAF0F0; color:#C49A9A; }
+#b-weak.on-weak  { background:var(--low);  color:#fff; }
+#b-good.on-good  { background:var(--ok);   color:#fff; }
+#b-strong.on-strong{ background:var(--high); color:#fff; }
+
+/* ---------- 세그먼트 ---------- */
+.seg{ display:flex; background:#F2E8EB; border-radius:var(--r-md); padding:4px; gap:4px; }
+.seg button{
+  flex:1; min-height:42px; border-radius:9px; font-size:14px; font-weight:700; color:var(--ink-2);
+}
+.seg button.sel{ background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(72,42,52,.10); }
+
+/* ---------- 상태 메시지 ---------- */
+.statusmsg{
+  margin-top:16px; background:var(--surface); border:1px solid var(--line);
+  border-left:3px solid var(--accent); border-radius:var(--r-md);
+  padding:14px 16px; font-size:14px; font-weight:600; color:var(--ink-2); min-height:48px;
+  text-align:left;
+}
+
+/* ---------- 토스트 ---------- */
+#toast{
+  position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+  background:var(--ink); color:#fff; padding:11px 18px; border-radius:999px;
+  font-size:14px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .25s; z-index:99;
+  max-width:90vw; text-align:center;
+}
+#toast.show{ opacity:1; }
+
+/* ============ 시각장애 모드: 초고대비(기능 유지, 정돈만) ============ */
+.theme-hc{ background:#000; min-height:100vh; }
+.theme-hc .screen-inner{ max-width:480px; margin:0 auto; padding:24px 20px 48px; }
+.hc-title{ color:#FFD400; font-size:28px; font-weight:900; text-align:center; padding:12px 0 20px; letter-spacing:-0.3px; }
+.hc-btn{
+  display:block; width:100%; min-height:92px; margin-bottom:12px; border-radius:var(--r-lg);
+  background:#000; color:#FFD400; border:3px solid #FFD400;
+  font-size:28px; font-weight:900; text-align:center; line-height:1.3; padding:14px;
+}
+.hc-btn.focus{ background:#FFD400; color:#000; }
+.hc-btn.sm{ min-height:68px; font-size:22px; }
+.hc-note{ color:#FFD400; font-size:92px; font-weight:900; text-align:center; margin:8px 0; min-height:108px; letter-spacing:-2px; }
+.hc-sub{ color:#fff; font-size:20px; font-weight:800; text-align:center; margin-bottom:10px; min-height:28px; }
+.hc-verdict{
+  font-size:30px; font-weight:900; text-align:center; border-radius:var(--r-md); padding:14px;
+  margin-bottom:14px; background:#161616; color:#aaa; min-height:62px;
+}
+.hc-verdict.v1{ background:#0a2a52; color:#7fb6ff; }
+.hc-verdict.v2{ background:#0d3d22; color:#58d68d; }
+.hc-verdict.v3{ background:#4a1010; color:#ff8a8a; }
+.hc-row{ display:flex; gap:10px; }
+.hc-row .hc-btn{ flex:1; }
+.hc-small{ color:#bbb; font-size:15px; text-align:center; margin-bottom:12px; line-height:1.55; }
+</style>
+</head>
+<body>
+
+<!-- ==================== S0. 홈 (모드 선택) ==================== -->
+<div id="s-home" class="screen">
+  <header class="app-header">
+    <h1>🎵 단소·리코더 도우미</h1>
+    <p>시각·청각장애 학생을 위한 관악기 연습 도우미</p>
+  </header>
+
+  <div class="card">
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+      <span id="conn-badge" class="badge off">마이크로비트: 연결 안 됨</span>
+      <span id="src-badge" class="badge warn">측정: 폰 마이크</span>
+    </div>
+    <button id="btn-connect" class="btn-wide btn-accent">🔗 마이크로비트 연결</button>
+    <div id="ble-hint" class="small">악기에 붙인 마이크로비트와 블루투스로 연결합니다. (안드로이드 크롬)</div>
+  </div>
+
+  <button id="btn-mode-see" class="btn-mode"><span class="mchip mc-see">👁</span><span class="mtxt">시각장애 모드<small>초고대비 화면 · 전체 음성 안내</small></span></button>
+  <button id="btn-mode-hear" class="btn-mode"><span class="mchip mc-hear">👂</span><span class="mtxt">청각장애 모드<small>화면 판정 · 게이지 · 진동 피드백</small></span></button>
+  <button id="btn-settings" class="btn-mode" style="min-height:64px;"><span class="mchip mc-set">⚙️</span><span class="mtxt" style="font-size:16px;">설정<small>연습 단계 · 진동 · 기준음 맞추기</small></span></button>
+  <div class="small" style="text-align:center; margin-top:8px;">동일중앙초 김태유 · 창업발명 경진대회 작품</div>
+</div>
+
+<!-- ==================== S1. 청각장애 모드 (목업 계승) ==================== -->
+<div id="s-hear" class="screen hidden">
+  <div class="topbar">
+    <button class="btn-back" id="hear-back">←</button>
+    <h2>👂 청각장애 모드</h2>
+    <span id="hear-conn" class="badge off">●</span>
+  </div>
+
+  <div class="tabs">
+    <button id="tab-recorder" class="tab sel">리코더</button>
+    <button id="tab-danso" class="tab">단소</button>
+  </div>
+
+  <div class="sec-label">연습할 음을 골라주세요</div>
+  <div id="note-grid" class="notes"></div>
+
+  <div class="card">
+    <div id="hz-val">— <span id="hz-unit">Hz</span></div>
+    <div id="note-cur">현재 음높이</div>
+
+    <div id="verdict-card" class="verdict">🎶 음을 고르고 소리를 내어 보세요</div>
+
+    <div class="gauge-wrap">
+      <div class="gauge-labels"><span>낮음</span><span>목표</span><span>높음</span></div>
+      <div class="gauge"><div class="needle" id="needle"></div></div>
+      <div id="cents-txt"></div>
+    </div>
+
+    <div class="sec-label" style="margin-left:0;">호흡 상태 <span class="small">(입김 세기)</span></div>
+    <div class="breath">
+      <div class="bseg" id="b-weak">약함</div>
+      <div class="bseg" id="b-good">적당</div>
+      <div class="bseg" id="b-strong">강함</div>
+    </div>
+
+    <div class="sec-label" style="margin-left:0;">진동 세기</div>
+    <div class="seg" id="vib-seg">
+      <button data-v="1">약</button>
+      <button data-v="2" class="sel">중</button>
+      <button data-v="3">강</button>
+      <button data-v="0">끔</button>
+    </div>
+    <button id="vib-test" class="btn-wide" style="margin-top:10px; margin-bottom:0;">📳 진동 미리 느껴보기</button>
+  </div>
+
+  <div id="hear-status" class="statusmsg">연습할 음을 골라주세요</div>
+</div>
+
+<!-- ==================== S2. 시각장애 모드 (초고대비 + 음성) ==================== -->
+<div id="s-see" class="theme-hc hidden">
+  <div class="screen-inner">
+
+    <!-- 메뉴 -->
+    <div id="see-menu">
+      <div class="hc-title">시각장애 모드</div>
+      <div class="hc-small">버튼을 한 번 누르면 읽어 주고,<br>같은 버튼을 두 번 누르면 실행합니다.</div>
+      <button class="hc-btn" data-tts="연습 곡" data-act="songs">🎵 연습 곡</button>
+      <button class="hc-btn" data-tts="운지 가이드" data-act="finger">✋ 운지 가이드</button>
+      <button class="hc-btn" data-tts="앱 설정" data-act="settings">⚙️ 앱 설정</button>
+      <button class="hc-btn" data-tts="처음 화면으로 돌아가기" data-act="home">🏠 처음으로</button>
+    </div>
+
+    <!-- 연습 곡 목록 -->
+    <div id="see-songlist" class="hidden">
+      <div class="hc-title">연습 곡</div>
+      <div id="songlist-btns"></div>
+      <button class="hc-btn sm" data-tts="뒤로 가기" data-act="menu">← 뒤로</button>
+    </div>
+
+    <!-- 연습 진행 -->
+    <div id="see-practice" class="hidden">
+      <div class="hc-sub" id="pr-song-name"></div>
+      <div class="hc-sub" id="pr-progress"></div>
+      <div class="hc-note" id="pr-note">황</div>
+      <div class="hc-verdict" id="pr-verdict">준비</div>
+      <div class="hc-row">
+        <button class="hc-btn sm" data-tts="기준음 다시 듣기" data-act="listen">🔊 듣기</button>
+        <button class="hc-btn sm" data-tts="다음 음으로" data-act="next">다음 →</button>
+      </div>
+      <div class="hc-row">
+        <button class="hc-btn sm" data-tts="이전 음으로" data-act="prev">← 이전</button>
+        <button class="hc-btn sm" data-tts="연습 끝내기" data-act="exit">끝내기</button>
+      </div>
+      <div class="hc-small">악기의 동그란 로고를 만져도 다음 음으로 넘어갑니다.</div>
+    </div>
+
+    <!-- 운지 가이드: 음 목록 -->
+    <div id="see-fingerlist" class="hidden">
+      <div class="hc-title">운지 가이드</div>
+      <div class="hc-row" style="margin-bottom:14px;">
+        <button class="hc-btn sm" id="fin-rec" data-tts="리코더 운지" data-act="fin-rec">리코더</button>
+        <button class="hc-btn sm" id="fin-dan" data-tts="단소 운지" data-act="fin-dan">단소</button>
+      </div>
+      <div id="finger-notes"></div>
+      <button class="hc-btn sm" data-tts="뒤로 가기" data-act="menu">← 뒤로</button>
+    </div>
+
+    <!-- 운지 상세 -->
+    <div id="see-fingerdetail" class="hidden">
+      <div class="hc-note" id="fd-note">황</div>
+      <div class="hc-small" id="fd-desc" style="font-size:22px; color:#FFD400;"></div>
+      <div class="hc-row">
+        <button class="hc-btn sm" data-tts="이 음의 소리 듣기" data-act="fd-listen">🔊 소리 듣기</button>
+        <button class="hc-btn sm" data-tts="설명 다시 듣기" data-act="fd-again">🔁 다시 설명</button>
+      </div>
+      <button class="hc-btn sm" data-tts="뒤로 가기" data-act="fingerback">← 뒤로</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ==================== S3. 설정 ==================== -->
+<div id="s-set" class="screen hidden">
+  <div class="topbar">
+    <button class="btn-back" id="set-back">←</button>
+    <h2>⚙️ 설정</h2>
+  </div>
+
+  <div class="card">
+    <div class="sec-label" style="margin-left:0; margin-top:0;">연습 단계 (음정 허용 오차)</div>
+    <div class="seg" id="tol-seg">
+      <button data-v="1" class="sel">초급 ±3%</button>
+      <button data-v="2">중급 ±2%</button>
+      <button data-v="3">고급 ±1.5%</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-label" style="margin-left:0; margin-top:0;">음성 안내 빠르기</div>
+    <div class="seg" id="tts-seg">
+      <button data-v="0.85">느림</button>
+      <button data-v="1" class="sel">보통</button>
+      <button data-v="1.2">빠름</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-label" style="margin-left:0; margin-top:0;">측정 방법</div>
+    <div class="seg" id="src-seg">
+      <button data-v="auto" class="sel">자동</button>
+      <button data-v="mb">마이크로비트</button>
+      <button data-v="phone">폰 마이크</button>
+    </div>
+    <div class="small" style="margin-top:8px;">자동: 마이크로비트가 연결되면 마이크로비트로, 아니면 폰 마이크로 측정합니다.</div>
+  </div>
+
+  <div class="card">
+    <div class="sec-label" style="margin-left:0; margin-top:0;">악기 기준음 맞추기 (캘리브레이션)</div>
+    <div class="small" style="margin-bottom:10px;">실제 악기 소리에 앱의 기준을 맞춥니다. 악기·음을 고르고 시작을 누른 뒤 3초간 그 음을 길게 부세요.</div>
+    <div class="seg" id="cal-inst" style="margin-bottom:10px;">
+      <button data-v="recorder" class="sel">리코더</button>
+      <button data-v="danso">단소</button>
+    </div>
+    <div class="seg" id="cal-note" style="margin-bottom:10px; flex-wrap:wrap;"></div>
+    <button id="cal-start" class="btn-wide btn-accent" style="margin-bottom:8px;">🎯 3초 측정 시작</button>
+    <div id="cal-status" class="small">현재 보정값 — 리코더: <span id="cal-cur-rec">0</span>센트 / 단소: <span id="cal-cur-dan">0</span>센트</div>
+    <button id="cal-reset" class="btn-wide" style="margin-top:10px; margin-bottom:0;">보정값 초기화</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ==================================================================
+ * CORE — 순수 로직 (음계표 / 판정 / 프로토콜) : 브라우저 API 의존 없음
+ * ================================================================== */
+const Core = (function () {
+
+  // ---- 악기 음계표 (아키텍처 문서 §7) ----
+  // 단소: 초등 교과 실제 5음 '중임무황태' (仲林無潢汰). 계획서 표기 '황태중임남'은
+  //       일반 국악 5음계 명칭으로, 실물 단소 연주 가능 음계로 구현함 (지도교사 검수 항목).
+  //       계획서 문자 그대로의 테이블이 필요하면 아래 DANSO_ALT로 교체.
+  const INSTRUMENTS = {
+    recorder: {
+      name: '리코더',
+      notes: [
+        { n: '도', f: 523.25 }, { n: '레', f: 587.33 }, { n: '미', f: 659.25 },
+        { n: '파', f: 698.46 }, { n: '솔', f: 783.99 }, { n: '라', f: 880.00 },
+        { n: '시', f: 987.77 }, { n: '높은도', f: 1046.50 }
+      ]
+    },
+    danso: {
+      name: '단소',
+      notes: [
+        { n: '중', f: 415.30 }, { n: '임', f: 466.16 }, { n: '무', f: 554.37 },
+        { n: '황', f: 622.25 }, { n: '태', f: 698.46 }
+      ]
+    }
+  };
+  // 계획서 표기(황태중임남, E♭5~C6 평취) — 필요 시 INSTRUMENTS.danso.notes에 대입
+  const DANSO_ALT = [
+    { n: '황', f: 622.25 }, { n: '태', f: 698.46 }, { n: '중', f: 830.61 },
+    { n: '임', f: 932.33 }, { n: '남', f: 1046.50 }
+  ];
+
+  // ---- 연습 단계별 허용 오차 (계획서 F12) ----
+  const TOL_LEVELS = { 1: { name: '초급', pct: 0.03 }, 2: { name: '중급', pct: 0.02 }, 3: { name: '고급', pct: 0.015 } };
+
+  // ---- 연습 곡 (계획서 F14) ----
+  const SONGS = [
+    { id: 'r-scale', inst: 'recorder', name: '리코더 음계 연습',
+      seq: ['도','레','미','파','솔','라','시','높은도'] },
+    { id: 'r-plane', inst: 'recorder', name: '비행기 (리코더)',
+      seq: ['미','레','도','레','미','미','미','레','레','레','미','솔','솔','미','레','도','레','미','미','미','레','레','미','레','도'] },
+    { id: 'r-bell', inst: 'recorder', name: '학교종 (리코더)',
+      seq: ['솔','솔','라','라','솔','솔','미','솔','솔','미','미','레','솔','솔','라','라','솔','솔','미','솔','미','레','미','도'] },
+    { id: 'd-scale', inst: 'danso', name: '단소 음계 연습',
+      seq: ['중','임','무','황','태','태','황','무','임','중'] },
+    // 단소 제재곡(아리랑 등)은 교과서 채보 확인 후 지도교사와 함께 여기에 추가
+    { id: 'd-long', inst: 'danso', name: '단소 긴소리 연습',
+      seq: ['중','중','임','임','무','무','황','황','태','태'] }
+  ];
+
+  // ---- 운지 가이드 (계획서 F15) — ⚠️ 교과서 기준 지도교사 검수 항목 ----
+  const FINGERINGS = {
+    recorder: {
+      '도':   '왼손 엄지로 뒷구멍을 막고, 왼손 첫째 둘째 셋째 구멍과 오른손 네 구멍을 모두 막습니다.',
+      '레':   '도 운지에서 맨 아래 일곱째 구멍만 엽니다.',
+      '미':   '뒷구멍과 첫째부터 다섯째 구멍까지 막습니다.',
+      '파':   '뒷구멍과 첫째, 둘째, 셋째, 넷째 구멍을 막습니다.',
+      '솔':   '뒷구멍과 왼손 첫째, 둘째, 셋째 구멍을 막습니다.',
+      '라':   '뒷구멍과 첫째, 둘째 구멍을 막습니다.',
+      '시':   '뒷구멍과 첫째 구멍만 막습니다.',
+      '높은도': '뒷구멍과 둘째 구멍만 막습니다.'
+    },
+    danso: {
+      '중': '뒷구멍과 첫째, 둘째, 셋째 지공을 막고 맨 아래 넷째 지공만 엽니다.',
+      '임': '뒷구멍과 첫째, 둘째 지공을 막습니다.',
+      '무': '뒷구멍과 첫째 지공만 막습니다.',
+      '황': '뒷구멍만 막고 앞 지공은 모두 엽니다.',
+      '태': '지공을 모두 열고 평취로 붑니다.'
+    }
+  };
+
+  // ---- 판정 (아키텍처 §4.2와 동일 로직 — 폰 마이크 경로에서 사용) ----
+  // 반환: { v: 0무음|1낮음|2맞음|3높음, fj: 판정에 쓴 주파수, cents: 목표 대비 편차 }
+  function judge(f, targetF, tolHz) {
+    if (!f || !targetF || !tolHz) return { v: 0, fj: f || 0, cents: 0 };
+    let fj = f;
+    // 배음(옥타브) 가드: 2배음이 우세하게 잡힌 경우 기본음으로 환산
+    if (fj > targetF * 1.5 && Math.abs(fj / 2 - targetF) <= tolHz * 2) fj = fj / 2;
+    const cents = 1200 * Math.log2(fj / targetF);
+    let v;
+    if (Math.abs(fj - targetF) <= tolHz) v = 2;
+    else v = (fj < targetF) ? 1 : 3;
+    return { v, fj, cents };
+  }
+
+  // 캘리브레이션(센트) 적용된 목표 주파수
+  function effTarget(f, calibCents) { return f * Math.pow(2, (calibCents || 0) / 1200); }
+  function tolHz(f, level) { return f * TOL_LEVELS[level].pct; }
+
+  // ---- BLE 라인 프로토콜 (아키텍처 §5.2) ----
+  function parseLine(line) {
+    const p = String(line).trim().split(',');
+    if (p[0] === 'D' && p.length >= 4) {
+      const f = parseInt(p[1], 10), level = parseInt(p[2], 10), v = parseInt(p[3], 10);
+      if (isNaN(f) || isNaN(level) || isNaN(v)) return { type: '?', raw: line };
+      return { type: 'D', f, level, verdict: v };
+    }
+    if (p[0] === 'E' && p.length >= 2) return { type: 'E', key: p[1] };
+    if (p[0] === 'K') return { type: 'K', ver: p[1] || '' };
+    if (p[0] === 'R' && p.length >= 2) return { type: 'R', cmd: p[1] };
+    return { type: '?', raw: line };
+  }
+  const buildM = (m) => 'M,' + m;
+  const buildG = (targetF, tol) => 'G,' + Math.round(targetF) + ',' + Math.max(1, Math.round(tol));
+  const buildGClear = () => 'G,0,0';
+  const buildP = (f, ms) => 'P,' + Math.round(f) + ',' + Math.round(ms);
+
+  // ---- 호흡(음량) 구간: -1 없음 / 0 약함 / 1 적당 / 2 강함 ----
+  function breathZone(level) {
+    if (level < 25) return -1;
+    if (level < 60) return 0;
+    if (level <= 195) return 1;
+    return 2;
+  }
+
+  function noteFreq(instKey, name) {
+    const inst = INSTRUMENTS[instKey];
+    if (!inst) return 0;
+    const n = inst.notes.find(x => x.n === name);
+    return n ? n.f : 0;
+  }
+
+  // ---- 데이터 자체 검증 (테스트에서 사용) ----
+  function validateData() {
+    const errs = [];
+    for (const s of SONGS) {
+      for (const n of s.seq) {
+        if (!noteFreq(s.inst, n)) errs.push(`곡 '${s.name}'에 없는 음: ${n}`);
+      }
+      if (!FINGERINGS[s.inst]) errs.push(`운지 데이터 없는 악기: ${s.inst}`);
+    }
+    for (const key of Object.keys(INSTRUMENTS)) {
+      const notes = INSTRUMENTS[key].notes;
+      for (let i = 1; i < notes.length; i++) {
+        if (notes[i].f <= notes[i - 1].f) errs.push(`${key} 음계가 오름차순이 아님: ${notes[i].n}`);
+      }
+      for (const n of notes) {
+        if (!FINGERINGS[key][n.n]) errs.push(`${key} '${n.n}' 운지 설명 없음`);
+      }
+    }
+    return errs;
+  }
+
+  return { INSTRUMENTS, DANSO_ALT, TOL_LEVELS, SONGS, FINGERINGS,
+           judge, effTarget, tolHz, parseLine, buildM, buildG, buildGClear, buildP,
+           breathZone, noteFreq, validateData };
+})();
+
+// node 테스트 하니스 지원
+if (typeof module !== 'undefined' && module.exports) { module.exports = Core; }
+
+/* ==================================================================
+ * TTS — 음성 안내 (계획서 F8·F9) : 발화 큐, ko-KR, 중첩 방지
+ * ================================================================== */
+const TTS = {
+  rate: 1.0,
+  voice: null,
+  enabled: ('speechSynthesis' in window),
+  _init() {
+    if (!this.enabled) return;
+    const pick = () => {
+      const vs = speechSynthesis.getVoices();
+      this.voice = vs.find(v => v.lang === 'ko-KR') || vs.find(v => (v.lang || '').startsWith('ko')) || null;
+    };
+    pick();
+    speechSynthesis.onvoiceschanged = pick;
+  },
+  speak(text, opts = {}) {
+    if (!this.enabled || !text) return;
+    if (opts.interrupt !== false) speechSynthesis.cancel();  // 기본: 새 안내가 이전 발화를 대체
+    const u = new SpeechSynthesisUtterance(text);
+    if (this.voice) u.voice = this.voice;
+    u.lang = 'ko-KR';
+    u.rate = this.rate;
+    u.pitch = 1.0;
+    if (opts.onend) u.onend = opts.onend;
+    speechSynthesis.speak(u);
+  },
+  stop() { if (this.enabled) speechSynthesis.cancel(); }
+};
+TTS._init();
+
+/* ==================================================================
+ * Vib — 진동 피드백 (계획서 F6·F7, 설계 D1)
+ *  판정별 패턴 상이 + 세기 3단계(지속시간 배율) / 판정 '변화 시점'에만 발동
+ * ================================================================== */
+const Vib = {
+  level: 2,                       // 0=끔, 1=약, 2=중, 3=강
+  SCALE: { 1: 0.6, 2: 1.0, 3: 1.6 },
+  PATTERNS: { 1: [350], 2: [100, 60, 100], 3: [70, 50, 70, 50, 70] },  // 낮음/맞음/높음
+  supported: ('vibrate' in navigator),
+  fire(verdict) {
+    if (!this.supported || this.level === 0) return;
+    const base = this.PATTERNS[verdict];
+    if (!base) return;
+    const k = this.SCALE[this.level] || 1;
+    navigator.vibrate(base.map((d, i) => (i % 2 === 0 ? Math.round(d * k) : d)));
+  },
+  test() {
+    if (!this.supported) return false;
+    if (this.level === 0) return true;
+    const k = this.SCALE[this.level] || 1;
+    navigator.vibrate([Math.round(150 * k), 80, Math.round(150 * k)]);
+    return true;
+  }
+};
+
+/* ==================================================================
+ * BLE — micro:bit UART 연결 관리 (아키텍처 §5)
+ * ================================================================== */
+const BLE = {
+  SVC: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+  TXC: '6e400002-b5a3-f393-e0a9-e50e24dcca9e',   // micro:bit → 폰 (Indicate 구독)
+  RXC: '6e400003-b5a3-f393-e0a9-e50e24dcca9e',   // 폰 → micro:bit (Write)
+  supported: ('bluetooth' in navigator),
+  device: null, rxChar: null, connected: false,
+  lastDataAt: 0,
+  _lineBuf: '',
+  _writeQ: Promise.resolve(),
+  _reconnectTries: 0,
+  _userDisconnect: false,
+  onLine: null, onState: null,     // 앱이 주입하는 콜백
+
+  async connect() {
+    if (!this.supported) throw new Error('nobt');
+    this.device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [this.SVC]
+    });
+    this.device.addEventListener('gattserverdisconnected', () => this._onDisconnected());
+    this._userDisconnect = false;
+    await this._open();
+  },
+
+  async _open() {
+    const server = await this.device.gatt.connect();
+    const svc = await server.getPrimaryService(this.SVC);
+    const tx = await svc.getCharacteristic(this.TXC);
+    this.rxChar = await svc.getCharacteristic(this.RXC);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', (e) => {
+      const chunk = new TextDecoder().decode(e.target.value);
+      this._lineBuf += chunk;
+      let idx;
+      while ((idx = this._lineBuf.indexOf('\n')) >= 0) {
+        const line = this._lineBuf.slice(0, idx);
+        this._lineBuf = this._lineBuf.slice(idx + 1);
+        this.lastDataAt = Date.now();
+        if (line.trim() && this.onLine) this.onLine(line);
+      }
+    });
+    this.connected = true;
+    this._reconnectTries = 0;
+    this.lastDataAt = Date.now();
+    if (this.onState) this.onState('connected');
+  },
+
+  _onDisconnected() {
+    this.connected = false;
+    this.rxChar = null;
+    if (this.onState) this.onState('disconnected');
+    if (this._userDisconnect) return;
+    // 자동 재연결 3회 (아키텍처 §5.3)
+    const retry = () => {
+      if (this.connected || this._reconnectTries >= 3 || !this.device) {
+        if (!this.connected && this.onState) this.onState('lost');
+        return;
+      }
+      this._reconnectTries++;
+      if (this.onState) this.onState('reconnecting', this._reconnectTries);
+      this._open().catch(() => setTimeout(retry, 1200));
+    };
+    setTimeout(retry, 800);
+  },
+
+  disconnect() {
+    this._userDisconnect = true;
+    try { if (this.device && this.device.gatt.connected) this.device.gatt.disconnect(); } catch (e) {}
+    this.connected = false;
+  },
+
+  send(str) {
+    if (!this.connected || !this.rxChar) return Promise.resolve(false);
+    const data = new TextEncoder().encode(str + '\n');
+    this._writeQ = this._writeQ.then(() =>
+      this.rxChar.writeValue(data).then(() => true).catch(() => false)
+    );
+    return this._writeQ;
+  },
+
+  // 설정류 명령: 1초 내 ACK 없으면 1회 재전송 (아키텍처 §5.2)
+  _acks: {},
+  sendReliable(str) {
+    const cmd = str[0];
+    this.send(str);
+    clearTimeout(this._acks[cmd]);
+    this._acks[cmd] = setTimeout(() => { if (this.connected) this.send(str); }, 1000);
+  },
+  gotAck(cmd) { clearTimeout(this._acks[cmd]); }
+};
+
+/* ==================================================================
+ * Pitch — 폰 마이크 폴백 측정 (설계 D3 예비 경로, 목업 앱 방식 계승)
+ *  Web Audio 자기상관(ACF) 피치 검출, ~10Hz 주기
+ * ================================================================== */
+const Pitch = {
+  ctx: null, analyser: null, buf: null, timer: null,
+  running: false, muteUntil: 0,
+  onFrame: null,                  // {f, level} 콜백
+
+  async start() {
+    if (this.running) return true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') await this.ctx.resume();
+      const src = this.ctx.createMediaStreamSource(stream);
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 2048;
+      src.connect(this.analyser);
+      this.buf = new Float32Array(this.analyser.fftSize);
+      this._stream = stream;
+      this.running = true;
+      this.timer = setInterval(() => this._tick(), 100);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  stop() {
+    if (!this.running) return;
+    clearInterval(this.timer);
+    try { this._stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    try { this.ctx.close(); } catch (e) {}
+    this.running = false; this.ctx = null; this.analyser = null;
+  },
+
+  _tick() {
+    if (!this.running || Date.now() < this.muteUntil) return;
+    this.analyser.getFloatTimeDomainData(this.buf);
+    const sr = this.ctx.sampleRate;
+    let sum = 0;
+    for (let i = 0; i < this.buf.length; i++) sum += this.buf[i] * this.buf[i];
+    const rms = Math.sqrt(sum / this.buf.length);
+    const level = Math.min(255, Math.round(rms * 2800));   // micro:bit soundLevel(0~255)과 유사 스케일
+    let f = 0;
+    if (rms > 0.01) {
+      f = this._acf(this.buf, sr);
+      if (f < 380 || f > 2200) f = 0;
+    }
+    if (this.onFrame) this.onFrame({ f: Math.round(f), level });
+  },
+
+  // 정규화 자기상관 + 옥타브(배음 아래) 가드 + 포물선 보간
+  _acf(buf, sr) {
+    const n = buf.length;
+    const minLag = Math.floor(sr / 2200), maxLag = Math.min(n - 2, Math.ceil(sr / 380));
+    let bestLag = -1, bestCorr = 0;
+    const corr = new Float32Array(maxLag + 1);
+    let e0 = 0;
+    for (let i = 0; i < n; i++) e0 += buf[i] * buf[i];
+    if (e0 <= 0) return 0;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let c = 0;
+      for (let i = 0; i < n - lag; i++) c += buf[i] * buf[i + lag];
+      c = c / e0;
+      corr[lag] = c;
+      if (c > bestCorr) { bestCorr = c; bestLag = lag; }
+    }
+    if (bestLag < 0 || bestCorr < 0.5) return 0;
+    // 옥타브-다운 오류 방지: bestLag의 1/2, 1/3 지연에 비슷한 피크가 있으면 더 짧은 쪽(높은 f) 채택
+    for (const div of [3, 2]) {
+      const cand = Math.round(bestLag / div);
+      if (cand >= minLag && corr[cand] > 0.88 * bestCorr) bestLag = cand;
+    }
+    // 포물선 보간으로 서브샘플 정밀화
+    let lag = bestLag;
+    if (lag > minLag && lag < maxLag) {
+      const y1 = corr[lag - 1], y2 = corr[lag], y3 = corr[lag + 1];
+      const denom = (y1 - 2 * y2 + y3);
+      if (Math.abs(denom) > 1e-9) {
+        const shift = 0.5 * (y1 - y3) / denom;
+        if (Math.abs(shift) < 1) lag = lag + shift;
+      }
+    }
+    return sr / lag;
+  },
+
+  // 폰 스피커로 기준음 재생(마이크로비트 미연결 시) — 재생 동안 측정 일시정지
+  beep(f, ms) {
+    this.muteUntil = Date.now() + ms + 250;
+    try {
+      const ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = f;
+      g.gain.value = 0.25;
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start();
+      g.gain.setValueAtTime(0.25, ctx.currentTime + (ms - 60) / 1000);
+      g.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + ms / 1000);
+      osc.stop(ctx.currentTime + ms / 1000 + 0.05);
+      if (!this.ctx) setTimeout(() => ctx.close(), ms + 300);
+    } catch (e) {}
+  }
+};
+
+/* ==================================================================
+ * WakeLock — 연습 중 화면 꺼짐 방지 (아키텍처 R4)
+ * ================================================================== */
+const Wake = {
+  lock: null,
+  async on() {
+    try { if ('wakeLock' in navigator) this.lock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  },
+  off() { try { if (this.lock) { this.lock.release(); this.lock = null; } } catch (e) {} }
+};
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && App && App.needsWake()) Wake.on();
+});
+
+/* ==================================================================
+ * APP — 화면·흐름 배선
+ * ================================================================== */
+const App = (function () {
+  const $ = (id) => document.getElementById(id);
+  const qsa = (sel, root) => Array.prototype.slice.call((root || document).querySelectorAll(sel));
+
+  // ---------- 설정 저장 ----------
+  const DEFAULTS = { tol: 1, vib: 2, rate: 1.0, src: 'auto', calib: { recorder: 0, danso: 0 } };
+  let cfg;
+  try {
+    const j = JSON.parse(localStorage.getItem('dsr.cfg') || '{}');
+    cfg = Object.assign({}, DEFAULTS, j);
+    cfg.calib = Object.assign({}, DEFAULTS.calib, (j && j.calib) || {});
+  } catch (e) { cfg = JSON.parse(JSON.stringify(DEFAULTS)); }
+  function save() { try { localStorage.setItem('dsr.cfg', JSON.stringify(cfg)); } catch (e) {} }
+
+  // ---------- 앱 상태 ----------
+  const S = {
+    screen: 'home',            // home | hear | see | set
+    seeView: 'menu',           // menu | songlist | practice | fingerlist | fingerdetail
+    inst: 'recorder', selIdx: -1,
+    practice: null,            // { songIdx, pos }
+    lastV: -1, lastVAt: 0, lastVSame: 0,
+    phonePrevV: -1,
+    coachAt: 0, successFor: -1,
+    finInst: 'recorder', fdName: null,
+    calib: null,               // { inst, noteF, vals:[], until } 캘리브레이션 수집
+    setReturn: 'home',
+    lastTapEl: null, lastTapAt: 0,
+    warnedNoSignal: false
+  };
+
+  function toast(msg, ms) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._tm); toast._tm = setTimeout(() => t.classList.remove('show'), ms || 2200);
+  }
+
+  // ---------- 측정 소스 ----------
+  function source() {
+    if (cfg.src === 'mb') return 'mb';
+    if (cfg.src === 'phone') return 'phone';
+    return BLE.connected ? 'mb' : 'phone';
+  }
+  function measuringNeeded() {
+    return S.screen === 'hear' || (S.screen === 'see' && S.seeView === 'practice') || !!S.calib;
+  }
+  async function ensureSource() {
+    updateSrcBadge();
+    if (!measuringNeeded()) { Pitch.stop(); return; }
+    if (source() === 'phone') {
+      const ok = await Pitch.start();
+      if (!ok) toast('폰 마이크 권한이 필요해요. 크롬 주소창 옆 🎤를 허용해 주세요.', 3500);
+    } else {
+      Pitch.stop();
+    }
+  }
+
+  // ---------- 목표음 ----------
+  function currentTargetNote() {
+    if (S.screen === 'hear' && S.selIdx >= 0) return Core.INSTRUMENTS[S.inst].notes[S.selIdx];
+    if (S.screen === 'see' && S.practice) {
+      const song = Core.SONGS[S.practice.songIdx];
+      const name = song.seq[S.practice.pos];
+      return { n: name, f: Core.noteFreq(song.inst, name) };
+    }
+    return null;
+  }
+  function currentInstKey() {
+    if (S.screen === 'see' && S.practice) return Core.SONGS[S.practice.songIdx].inst;
+    return S.inst;
+  }
+  function currentTarget() {
+    const note = currentTargetNote();
+    if (!note) return null;
+    const inst = currentInstKey();
+    const fEff = Core.effTarget(note.f, cfg.calib[inst]);
+    return { name: note.n, fEff, tol: Core.tolHz(fEff, cfg.tol) };
+  }
+  function pushTarget() {
+    if (!BLE.connected) return;
+    const t = currentTarget();
+    BLE.sendReliable(t ? Core.buildG(t.fEff, t.tol) : Core.buildGClear());
+  }
+
+  // ---------- 기준음 재생 ----------
+  function playReference(ms) {
+    const t = currentTarget(); if (!t) return;
+    if (BLE.connected) BLE.send(Core.buildP(t.fEff, ms || 700));
+    else Pitch.beep(t.fEff, ms || 700);
+  }
+
+  // ---------- 측정 프레임 처리 (mb/phone 공통 진입점) ----------
+  function onMeasure(d, src) {
+    // 캘리브레이션 수집 중이면 우선 처리
+    if (S.calib) {
+      if (d.f > 0) S.calib.vals.push(d.f);
+      if (Date.now() >= S.calib.until) finishCalib();
+      return;
+    }
+    if (src !== source() || !measuringNeeded()) return;
+
+    const t = currentTarget();
+    let v = 0, cents = 0;
+    if (src === 'mb') {
+      v = d.verdict;
+      if (d.f > 0 && t) cents = 1200 * Math.log2(Core.effTarget(d.f, 0) / t.fEff);
+      // (mb는 자체 판정 — 화면은 미러. cents는 게이지 표시용)
+      if (d.f > 0 && t) { const j = Core.judge(d.f, t.fEff, t.tol); cents = j.cents; }
+    } else {
+      const j = Core.judge(d.f, t ? t.fEff : 0, t ? t.tol : 0);
+      // 폰 경로 채터링 방지: 같은 판정 2프레임 연속 시 확정
+      if (j.v === S.phonePrevV) { v = j.v; } else { v = (S.lastV >= 0 ? S.lastV : 0); }
+      S.phonePrevV = j.v;
+      cents = j.cents;
+    }
+
+    renderMeasure(d.f, d.level, v, cents, !!t);
+
+    // ---- 판정 변화 액션 ----
+    const changed = (v !== S.lastV);
+    if (changed) { S.lastV = v; S.lastVAt = Date.now(); }
+
+    if (S.screen === 'hear' && changed && v >= 1 && v <= 3) Vib.fire(v);   // 계획서 F6
+
+    if (S.screen === 'see' && S.practice) {
+      if (v === 2 && changed && S.successFor !== S.practice.pos) {
+        S.successFor = S.practice.pos;
+        TTS.speak('맞았어요! 참 잘했어요. 로고를 만지면 다음 음으로 갑니다.');
+      }
+      // 코칭: 틀린 판정이 3초 이상 지속 (6초 간격)
+      if ((v === 1 || v === 3) && Date.now() - S.lastVAt > 3000 && Date.now() - S.coachAt > 6000) {
+        S.coachAt = Date.now();
+        TTS.speak(v === 1 ? '조금 낮아요. 입김을 조금 더 세게 불어 보세요.'
+                          : '조금 높아요. 입김을 살짝 줄여 보세요.');
+      }
+    }
+  }
+
+  // ---------- 측정 UI 렌더 ----------
+  const VERDICT_HEAR = {
+    '-1': ['🎶 음을 고르고 소리를 내어 보세요', ''],
+    0: ['🎶 소리를 내어 보세요', ''],
+    1: ['⬇ 낮아요', 'v1'], 2: ['⭕ 맞았어요!', 'v2'], 3: ['⬆ 높아요', 'v3']
+  };
+  const STATUS_HEAR = {
+    0: (n) => `'${n}' 소리를 길게 내어 보세요`,
+    1: () => '조금 낮아요 — 입김을 조금 더 세게!',
+    2: () => '참 잘했어요! 그 소리를 기억하세요 🎉',
+    3: () => '조금 높아요 — 입김을 살짝 약하게!'
+  };
+  const VERDICT_SEE = { 0: ['소리를 기다려요…', ''], 1: ['낮아요 ⬇', 'v1'], 2: ['맞았어요 ⭕', 'v2'], 3: ['높아요 ⬆', 'v3'] };
+
+  function renderMeasure(f, level, v, cents, hasTarget) {
+    if (S.screen === 'hear') {
+      $('hz-val').innerHTML = (f > 0 ? f : '—') + ' <span id="hz-unit">Hz</span>';
+      const t = currentTarget();
+      $('note-cur').textContent = t ? `목표: ${t.name} (${Math.round(t.fEff)}Hz)` : '현재 음높이';
+
+      const vk = hasTarget ? v : -1;
+      const [txt, cls] = VERDICT_HEAR[vk] || VERDICT_HEAR['-1'];
+      const vc = $('verdict-card');
+      vc.textContent = txt; vc.className = 'verdict ' + (cls || '');
+
+      // 게이지 바늘: ±100센트 범위
+      const c = (f > 0 && hasTarget) ? Math.max(-100, Math.min(100, cents)) : 0;
+      $('needle').style.left = `calc(${50 + c / 2}% - 4px)`;
+      $('cents-txt').textContent = (f > 0 && hasTarget) ? `${cents >= 0 ? '+' : ''}${Math.round(cents)}센트` : '';
+
+      renderBreath(level);
+      if (hasTarget && STATUS_HEAR[v]) $('hear-status').textContent = STATUS_HEAR[v](currentTarget().name);
+    }
+    if (S.screen === 'see' && S.practice) {
+      const [txt, cls] = VERDICT_SEE[v] || VERDICT_SEE[0];
+      const pv = $('pr-verdict');
+      pv.textContent = txt; pv.className = 'hc-verdict ' + (cls || '');
+    }
+  }
+
+  function renderBreath(level) {
+    const z = Core.breathZone(level);
+    $('b-weak').className   = 'bseg' + (z === 0 ? ' on-weak' : '');
+    $('b-good').className   = 'bseg' + (z === 1 ? ' on-good' : '');
+    $('b-strong').className = 'bseg' + (z === 2 ? ' on-strong' : '');
+  }
+
+  // ---------- 화면 전환 ----------
+  function showScreen(name) {
+    S.screen = name;
+    $('s-home').classList.toggle('hidden', name !== 'home');
+    $('s-hear').classList.toggle('hidden', name !== 'hear');
+    $('s-see').classList.toggle('hidden', name !== 'see');
+    $('s-set').classList.toggle('hidden', name !== 'set');
+    S.lastV = -1; S.phonePrevV = -1;
+
+    if (name === 'hear') {
+      if (BLE.connected) BLE.sendReliable(Core.buildM('H'));
+      Wake.on(); ensureSource();
+    } else if (name === 'see') {
+      if (BLE.connected) BLE.sendReliable(Core.buildM('V'));
+      Wake.on(); showSeeView('menu');
+    } else {
+      if (BLE.connected && name === 'home') { BLE.sendReliable(Core.buildM('I')); }
+      if (name === 'home') { S.practice = null; S.selIdx = -1; Wake.off(); TTS.stop(); }
+      ensureSource();
+    }
+    updateConnUI();
+  }
+
+  // ---------- 청각 모드 ----------
+  const NOTE_COLORS = 8;
+  function renderNotes() {
+    const grid = $('note-grid');
+    const notes = Core.INSTRUMENTS[S.inst].notes;
+    grid.className = 'notes' + (notes.length === 5 ? ' five' : '');
+    grid.innerHTML = '';
+    notes.forEach((nt, i) => {
+      const b = document.createElement('button');
+      b.className = `note-btn nc${i % NOTE_COLORS}` + (i === S.selIdx ? ' sel' : '');
+      b.textContent = nt.n;
+      b.onclick = () => selectNote(i);
+      grid.appendChild(b);
+    });
+  }
+  function selectNote(i) {
+    S.selIdx = i; S.lastV = -1; S.successFor = -1;
+    renderNotes();
+    const t = currentTarget();
+    $('hear-status').textContent = `'${t.name}' 소리를 길게 내어 보세요`;
+    pushTarget(); ensureSource();
+  }
+  function setInst(k) {
+    if (S.inst === k) return;
+    S.inst = k; S.selIdx = -1;
+    $('tab-recorder').classList.toggle('sel', k === 'recorder');
+    $('tab-danso').classList.toggle('sel', k === 'danso');
+    renderNotes();
+    $('hear-status').textContent = '연습할 음을 골라주세요';
+    if (BLE.connected) BLE.sendReliable(Core.buildGClear());
+  }
+
+  // ---------- 시각 모드 ----------
+  const SEE_VIEWS = ['see-menu', 'see-songlist', 'see-practice', 'see-fingerlist', 'see-fingerdetail'];
+  function showSeeView(v) {
+    S.seeView = v;
+    SEE_VIEWS.forEach(id => $(id).classList.toggle('hidden', id !== 'see-' + v));
+    if (v === 'menu') {
+      S.practice = null;
+      if (BLE.connected) BLE.sendReliable(Core.buildGClear());
+      Pitch.stop();
+      TTS.speak('시각장애 모드입니다. 연습 곡, 운지 가이드, 앱 설정, 처음으로 버튼이 있습니다. 버튼을 한 번 누르면 읽어 주고, 두 번 누르면 실행합니다.');
+    }
+    if (v === 'songlist') {
+      renderSonglist();
+      TTS.speak(`연습 곡 목록입니다. ${Core.SONGS.map(s => s.name).join(', ')}. 총 ${Core.SONGS.length}곡이 있습니다.`);
+    }
+    if (v === 'fingerlist') {
+      renderFingerlist();
+      TTS.speak(`운지 가이드입니다. 현재 악기는 ${Core.INSTRUMENTS[S.finInst].name}입니다. 음을 골라 주세요.`);
+    }
+  }
+  function renderSonglist() {
+    const box = $('songlist-btns'); box.innerHTML = '';
+    Core.SONGS.forEach((s, i) => {
+      const b = document.createElement('button');
+      b.className = 'hc-btn sm';
+      b.textContent = `${i + 1}. ${s.name}`;
+      b.dataset.tts = `${s.name}. ${Core.INSTRUMENTS[s.inst].name} 곡, ${s.seq.length}개 음`;
+      b.dataset.act = 'song-' + i;
+      box.appendChild(b);
+    });
+  }
+  function renderFingerlist() {
+    $('fin-rec').classList.toggle('focus', S.finInst === 'recorder');
+    $('fin-dan').classList.toggle('focus', S.finInst === 'danso');
+    const box = $('finger-notes'); box.innerHTML = '';
+    Core.INSTRUMENTS[S.finInst].notes.forEach(nt => {
+      const b = document.createElement('button');
+      b.className = 'hc-btn sm';
+      b.textContent = nt.n;
+      b.dataset.tts = nt.n;
+      b.dataset.act = 'fd-' + nt.n;
+      box.appendChild(b);
+    });
+  }
+  function openFingerDetail(name) {
+    S.fdName = name;
+    $('fd-note').textContent = name;
+    const desc = Core.FINGERINGS[S.finInst][name] || '';
+    $('fd-desc').textContent = desc;
+    showSeeViewRaw('fingerdetail');
+    TTS.speak(`${name}. ${desc}`);
+  }
+  function showSeeViewRaw(v) {  // TTS 인트로 없이 전환
+    S.seeView = v;
+    SEE_VIEWS.forEach(id => $(id).classList.toggle('hidden', id !== 'see-' + v));
+  }
+
+  // ---------- 연습 곡 진행 ----------
+  function startSong(idx) {
+    S.practice = { songIdx: idx, pos: 0 };
+    S.successFor = -1; S.lastV = -1;
+    const song = Core.SONGS[idx];
+    $('pr-song-name').textContent = song.name;
+    showSeeViewRaw('practice');
+    if (BLE.connected) BLE.sendReliable(Core.buildM('V'));
+    ensureSource();
+    TTS.speak(`${song.name} 연습을 시작합니다. 로고를 만지거나 다음 버튼을 누르면 다음 음으로 갑니다.`, {
+      onend: () => announcePos(true)
+    });
+  }
+  function announcePos(playRef) {
+    const song = Core.SONGS[S.practice.songIdx];
+    const name = song.seq[S.practice.pos];
+    $('pr-note').textContent = name;
+    $('pr-progress').textContent = `${S.practice.pos + 1} / ${song.seq.length}`;
+    $('pr-verdict').textContent = '준비'; $('pr-verdict').className = 'hc-verdict';
+    S.successFor = -1; S.lastV = -1; S.coachAt = 0;
+    pushTarget();
+    TTS.speak(`${S.practice.pos + 1}번째. 다음 음은 ${name}입니다.`, {
+      onend: () => { if (playRef) playReference(700); }
+    });
+  }
+  function nextNote() {
+    if (!S.practice) return;
+    const song = Core.SONGS[S.practice.songIdx];
+    if (S.practice.pos >= song.seq.length - 1) {
+      TTS.speak('연습을 모두 마쳤어요. 참 잘했어요!');
+      if (BLE.connected) BLE.sendReliable(Core.buildGClear());
+      S.practice = null;
+      showSeeViewRaw('songlist');
+      return;
+    }
+    S.practice.pos++; announcePos(true);
+  }
+  function prevNote() {
+    if (!S.practice) return;
+    if (S.practice.pos === 0) { TTS.speak('첫 번째 음입니다.'); announcePos(false); return; }
+    S.practice.pos--; announcePos(true);
+  }
+
+  // ---------- 시각 모드: 1탭 읽기 / 2탭 실행 (계획서 F9) ----------
+  $('s-see').addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-tts]');
+    if (!el) return;
+    const now = Date.now();
+    if (S.lastTapEl === el && now - S.lastTapAt < 900) {
+      S.lastTapEl = null;
+      runAction(el.dataset.act);
+    } else {
+      S.lastTapEl = el; S.lastTapAt = now;
+      qsa('.hc-btn.focus', $('s-see')).forEach(b => { if (b !== el) b.classList.remove('focus'); });
+      el.classList.add('focus');
+      TTS.speak(el.dataset.tts);
+    }
+  });
+
+  function runAction(act) {
+    if (!act) return;
+    if (act === 'songs') return showSeeView('songlist');
+    if (act === 'finger') return showSeeView('fingerlist');
+    if (act === 'settings') { S.setReturn = 'see'; TTS.speak('설정 화면을 엽니다.'); return showScreen('set'); }
+    if (act === 'home') { TTS.speak('처음 화면입니다.'); return showScreen('home'); }
+    if (act === 'menu') return showSeeView('menu');
+    if (act === 'listen') { TTS.stop(); return playReference(700); }
+    if (act === 'next') return nextNote();
+    if (act === 'prev') return prevNote();
+    if (act === 'exit') { TTS.speak('연습을 끝냈어요.'); S.practice = null; if (BLE.connected) BLE.sendReliable(Core.buildGClear()); return showSeeViewRaw('songlist'); }
+    if (act === 'fin-rec') { S.finInst = 'recorder'; renderFingerlist(); return TTS.speak('리코더 운지입니다.'); }
+    if (act === 'fin-dan') { S.finInst = 'danso'; renderFingerlist(); return TTS.speak('단소 운지입니다.'); }
+    if (act === 'fingerback') return showSeeView('fingerlist');
+    if (act === 'fd-listen') { const f = Core.effTarget(Core.noteFreq(S.finInst, S.fdName), cfg.calib[S.finInst]); TTS.stop(); if (BLE.connected) BLE.send(Core.buildP(f, 700)); else Pitch.beep(f, 700); return; }
+    if (act === 'fd-again') { const d = Core.FINGERINGS[S.finInst][S.fdName]; return TTS.speak(`${S.fdName}. ${d}`); }
+    if (act.indexOf('song-') === 0) return startSong(parseInt(act.slice(5), 10));
+    if (act.indexOf('fd-') === 0) return openFingerDetail(act.slice(3));
+  }
+
+  // ---------- BLE 배선 ----------
+  BLE.onLine = (line) => {
+    const m = Core.parseLine(line);
+    if (m.type === 'D') onMeasure(m, 'mb');
+    else if (m.type === 'E') {
+      if (S.screen === 'see' && S.practice) {
+        if (m.key === 'T' || m.key === 'B') nextNote();
+        else if (m.key === 'A') announcePos(true);   // 다시 안내
+      }
+    }
+    else if (m.type === 'R') BLE.gotAck(m.cmd);
+    else if (m.type === 'K') toast('마이크로비트 준비 완료 ✓');
+  };
+  BLE.onState = (st, n) => {
+    if (st === 'connected') {
+      toast('마이크로비트 연결됨 ✓');
+      const modeChar = S.screen === 'hear' ? 'H' : (S.screen === 'see' ? 'V' : 'I');
+      BLE.sendReliable(Core.buildM(modeChar));
+      pushTarget();
+      if (S.screen === 'see') TTS.speak('마이크로비트가 연결되었습니다.');
+      S.warnedNoSignal = false;
+    } else if (st === 'reconnecting') {
+      toast(`연결이 끊겨 다시 연결 중… (${n}/3)`);
+    } else if (st === 'lost') {
+      toast('마이크로비트 연결이 끊겼어요. 폰 마이크로 계속합니다.', 3500);
+      if (S.screen === 'see') TTS.speak('마이크로비트 연결이 끊겼습니다. 폰 마이크로 계속합니다.');
+      ensureSource();
+    }
+    updateConnUI();
+  };
+  Pitch.onFrame = (d) => onMeasure(d, 'phone');
+
+  // 연결 감시 (아키텍처 §5.2: 2.5초 무수신 경고)
+  setInterval(() => {
+    if (BLE.connected && source() === 'mb' && measuringNeeded()) {
+      if (Date.now() - BLE.lastDataAt > 2500 && !S.warnedNoSignal) {
+        S.warnedNoSignal = true;
+        toast('마이크로비트 신호가 없어요. 전원을 확인해 주세요.', 3000);
+      } else if (Date.now() - BLE.lastDataAt <= 2500) {
+        S.warnedNoSignal = false;
+      }
+    }
+  }, 1000);
+
+  // ---------- 연결 UI ----------
+  function updateConnUI() {
+    const cb = $('conn-badge'), hc = $('hear-conn');
+    if (BLE.connected) {
+      cb.textContent = '마이크로비트: 연결됨'; cb.className = 'badge on';
+      hc.textContent = '● 연결됨'; hc.className = 'badge on';
+      $('btn-connect').textContent = '🔌 연결 끊기';
+    } else {
+      cb.textContent = '마이크로비트: 연결 안 됨'; cb.className = 'badge off';
+      hc.textContent = '● 안 됨'; hc.className = 'badge off';
+      $('btn-connect').textContent = '🔗 마이크로비트 연결';
+    }
+    updateSrcBadge();
+  }
+  function updateSrcBadge() {
+    const sb = $('src-badge');
+    sb.textContent = '측정: ' + (source() === 'mb' ? '마이크로비트' : '폰 마이크');
+    sb.className = 'badge ' + (source() === 'mb' ? 'on' : 'warn');
+  }
+
+  // ---------- 캘리브레이션 ----------
+  let calNoteSel = 0;
+  function renderCalNotes() {
+    const inst = qsa('button', $('cal-inst')).find(b => b.classList.contains('sel')).dataset.v;
+    const box = $('cal-note'); box.innerHTML = '';
+    Core.INSTRUMENTS[inst].notes.forEach((nt, i) => {
+      const b = document.createElement('button');
+      b.textContent = nt.n;
+      b.className = (i === calNoteSel ? 'sel' : '');
+      b.onclick = () => { calNoteSel = i; renderCalNotes(); };
+      box.appendChild(b);
+    });
+  }
+  function startCalib() {
+    const inst = qsa('button', $('cal-inst')).find(b => b.classList.contains('sel')).dataset.v;
+    const note = Core.INSTRUMENTS[inst].notes[calNoteSel];
+    S.calib = { inst, noteF: note.f, vals: [], until: Date.now() + 3000 };
+    $('cal-start').textContent = `🎯 '${note.n}' 소리를 3초간 길게 부세요…`;
+    ensureSource();
+  }
+  function finishCalib() {
+    const c = S.calib; S.calib = null;
+    $('cal-start').textContent = '🎯 3초 측정 시작';
+    ensureSource();
+    if (c.vals.length < 5) { toast('소리를 감지하지 못했어요. 다시 해 주세요.'); return; }
+    c.vals.sort((a, b) => a - b);
+    const med = c.vals[Math.floor(c.vals.length / 2)];
+    let off = Math.round(1200 * Math.log2(med / c.noteF));
+    if (Math.abs(off) > 100) { toast(`측정값(${med}Hz)이 목표와 너무 달라요. 음을 확인해 주세요.`, 3200); return; }
+    cfg.calib[c.inst] = off; save(); renderCalibCur();
+    toast(`보정 완료: ${off >= 0 ? '+' : ''}${off}센트`);
+    pushTarget();
+  }
+  function renderCalibCur() {
+    $('cal-cur-rec').textContent = cfg.calib.recorder;
+    $('cal-cur-dan').textContent = cfg.calib.danso;
+  }
+
+  // ---------- 세그먼트 헬퍼 ----------
+  function bindSeg(el, getVal, setVal) {
+    qsa('button', el).forEach(b => {
+      b.addEventListener('click', () => {
+        setVal(b.dataset.v);
+        qsa('button', el).forEach(x => x.classList.toggle('sel', x === b));
+      });
+    });
+    qsa('button', el).forEach(x => x.classList.toggle('sel', x.dataset.v == String(getVal())));
+  }
+
+  // ---------- 초기 배선 ----------
+  function init() {
+    // 데이터 자체 검증 (개발 안전망)
+    const errs = Core.validateData();
+    if (errs.length) console.warn('데이터 오류:', errs);
+
+    // 홈
+    $('btn-connect').onclick = async () => {
+      if (BLE.connected) { BLE.disconnect(); updateConnUI(); return; }
+      if (!BLE.supported) { toast('이 브라우저는 웹 블루투스를 지원하지 않아요. 안드로이드 크롬으로 열어 주세요.', 3500); return; }
+      try { toast('마이크로비트를 찾는 중…'); await BLE.connect(); }
+      catch (e) { if (e && e.name !== 'NotFoundError') toast('연결에 실패했어요. 마이크로비트 전원을 확인해 주세요.', 3000); else toast('연결을 취소했어요.'); }
+    };
+    if (!BLE.supported) $('ble-hint').textContent = '⚠️ 이 브라우저는 웹 블루투스를 지원하지 않습니다. 안드로이드 크롬에서 열어 주세요. (폰 마이크 측정은 가능)';
+
+    $('btn-mode-hear').onclick = () => showScreen('hear');
+    $('btn-mode-see').onclick = () => { TTS.speak(' '); showScreen('see'); };  // 첫 제스처로 TTS 언락
+    $('btn-settings').onclick = () => { S.setReturn = 'home'; showScreen('set'); };
+
+    // 청각 모드
+    $('hear-back').onclick = () => showScreen('home');
+    $('tab-recorder').onclick = () => setInst('recorder');
+    $('tab-danso').onclick = () => setInst('danso');
+    bindSeg($('vib-seg'), () => cfg.vib, v => { cfg.vib = parseInt(v, 10); Vib.level = cfg.vib; save(); });
+    Vib.level = cfg.vib;
+    $('vib-test').onclick = () => { if (!Vib.test()) toast('이 기기는 진동을 지원하지 않아요.'); };
+    renderNotes();
+
+    // 설정
+    $('set-back').onclick = () => showScreen(S.setReturn === 'see' ? 'see' : 'home');
+    bindSeg($('tol-seg'), () => cfg.tol, v => { cfg.tol = parseInt(v, 10); save(); pushTarget(); });
+    bindSeg($('tts-seg'), () => cfg.rate, v => { cfg.rate = parseFloat(v); TTS.rate = cfg.rate; save(); TTS.speak('음성 빠르기입니다.'); });
+    TTS.rate = cfg.rate;
+    bindSeg($('src-seg'), () => cfg.src, v => { cfg.src = v; save(); ensureSource(); updateSrcBadge(); });
+    bindSeg($('cal-inst'), () => 'recorder', v => { calNoteSel = 0; renderCalNotes(); });
+    renderCalNotes(); renderCalibCur();
+    $('cal-start').onclick = startCalib;
+    $('cal-reset').onclick = () => { cfg.calib = { recorder: 0, danso: 0 }; save(); renderCalibCur(); toast('보정값을 초기화했어요.'); pushTarget(); };
+
+    updateConnUI();
+    showScreen('home');
+  }
+
+  init();
+
+  return { needsWake: () => S.screen === 'hear' || S.screen === 'see' };
+})();
+</script>
+</body>
+</html>
