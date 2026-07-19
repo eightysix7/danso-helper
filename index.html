@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#AD5168">
 <title>단소·리코더 도우미</title>
 <!-- DESIGN v3.1: calm rose + 포인트 컬러 -->
-<!-- APP v1.2 · V 상태동기화(0.5s)/연속 진동 엔진/청각 모드 버튼 음 선택 -->
+<!-- APP v1.3 · 기준음=폰 스피커 상시(P 미사용, 패닉 원인 제거)/시각 모드 A=이전·B=다음 -->
 <style>
 /* ============================================================
    v2 — Calm Modern: 뉴트럴 서피스 + 단일 액센트, 8px 그리드
@@ -323,7 +323,7 @@ button:active{ transform:scale(.98); }
         <button class="hc-btn sm" data-tts="이전 음으로" data-act="prev">← 이전</button>
         <button class="hc-btn sm" data-tts="연습 끝내기" data-act="exit">끝내기</button>
       </div>
-      <div class="hc-small">악기의 동그란 로고를 만져도 다음 음으로 넘어갑니다.</div>
+      <div class="hc-small">악기의 B 버튼(오른쪽)=다음 음, A 버튼(왼쪽)=이전 음입니다.</div>
     </div>
 
     <!-- 운지 가이드: 음 목록 -->
@@ -816,10 +816,10 @@ const Pitch = {
       const ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator(), g = ctx.createGain();
       osc.type = 'sine'; osc.frequency.value = f;
-      g.gain.value = 0.25;
+      g.gain.value = 0.38;
       osc.connect(g); g.connect(ctx.destination);
       osc.start();
-      g.gain.setValueAtTime(0.25, ctx.currentTime + (ms - 60) / 1000);
+      g.gain.setValueAtTime(0.38, ctx.currentTime + (ms - 60) / 1000);
       g.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + ms / 1000);
       osc.stop(ctx.currentTime + ms / 1000 + 0.05);
       if (!this.ctx) setTimeout(() => ctx.close(), ms + 300);
@@ -929,12 +929,7 @@ const App = (function () {
   // ---------- 기준음 재생 ----------
   function playReference(ms) {
     const t = currentTarget(); if (!t) return;
-    if (BLE.connected) {
-      BLE.send(Core.buildP(t.fEff, ms || 700));
-      Pitch.muteUntil = Date.now() + (ms || 700) + 400;   // 스피커 소리 오인식 방지
-    } else {
-      Pitch.beep(t.fEff, ms || 700);
-    }
+    Pitch.beep(t.fEff, ms || 700);   // v1.3: 항상 폰 스피커 (BLE 중 micro:bit 재생이 패닉 원인이었음)
   }
 
   // ---------- 측정 프레임 처리 (mb/phone 공통 진입점) ----------
@@ -978,7 +973,7 @@ const App = (function () {
     if (S.screen === 'see' && S.practice) {
       if (v === 2 && changed && S.successFor !== S.practice.pos) {
         S.successFor = S.practice.pos;
-        TTS.speak('맞았어요! 참 잘했어요. 로고를 만지면 다음 음으로 갑니다.');
+        TTS.speak('맞았어요! 참 잘했어요. 비 버튼을 누르면 다음 음으로 갑니다.');
       }
       // 코칭: 틀린 판정이 3초 이상 지속 (6초 간격)
       if ((v === 1 || v === 3) && Date.now() - S.lastVAt > 3000 && Date.now() - S.coachAt > 6000) {
@@ -1158,7 +1153,7 @@ const App = (function () {
     showSeeViewRaw('practice');
     if (BLE.connected) BLE.sendReliable(Core.buildM('V'));
     ensureSource();
-    TTS.speak(`${song.name} 연습을 시작합니다. 로고를 만지거나 다음 버튼을 누르면 다음 음으로 갑니다.`, {
+    TTS.speak(`${song.name} 연습을 시작합니다. 비 버튼을 누르면 다음 음, 에이 버튼을 누르면 이전 음으로 갑니다.`, {
       onend: () => announcePos(true)
     });
   }
@@ -1222,7 +1217,7 @@ const App = (function () {
     if (act === 'fin-rec') { S.finInst = 'recorder'; renderFingerlist(); return TTS.speak('리코더 운지입니다.'); }
     if (act === 'fin-dan') { S.finInst = 'danso'; renderFingerlist(); return TTS.speak('단소 운지입니다.'); }
     if (act === 'fingerback') return showSeeView('fingerlist');
-    if (act === 'fd-listen') { const f = Core.effTarget(Core.noteFreq(S.finInst, S.fdName), cfg.calib[S.finInst]); TTS.stop(); if (BLE.connected) { BLE.send(Core.buildP(f, 700)); Pitch.muteUntil = Date.now() + 1100; } else { Pitch.beep(f, 700); } return; }
+    if (act === 'fd-listen') { const f = Core.effTarget(Core.noteFreq(S.finInst, S.fdName), cfg.calib[S.finInst]); TTS.stop(); Pitch.beep(f, 700); return; }
     if (act === 'fd-again') { const d = Core.FINGERINGS[S.finInst][S.fdName]; return TTS.speak(`${S.fdName}. ${d}`); }
     if (act.indexOf('song-') === 0) return startSong(parseInt(act.slice(5), 10));
     if (act.indexOf('fd-') === 0) return openFingerDetail(act.slice(3));
@@ -1235,7 +1230,7 @@ const App = (function () {
     else if (m.type === 'E') {
       if (S.screen === 'see' && S.practice) {
         if (m.key === 'T' || m.key === 'B') nextNote();
-        else if (m.key === 'A') announcePos(true);   // 다시 안내
+        else if (m.key === 'A') prevNote();          // v1.3: A=이전 음 (청각 모드와 통일)
       } else if (S.screen === 'hear') {
         // v1.2: 악기에서 손 떼지 않고 음 변경 (로고/B=다음, A=이전)
         const nn = Core.INSTRUMENTS[S.inst].notes.length;
